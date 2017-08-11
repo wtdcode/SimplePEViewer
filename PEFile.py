@@ -1,23 +1,35 @@
 from collections import OrderedDict
 
 
-def bytes2int(bytestr):
-    return int(bytestr[::-1].hex(), 16)
+def bytes2int(bstr):
+    return int(bstr[::-1].hex(), 16)
 
 
 def read_str(file, offset):
     temp_offset = file.tell()
     file.seek(offset)
-    str = b""
+    bstr = b""
     while True:
         temp = file.read(1)
-        str += temp
+        bstr += temp
         if bytes2int(temp) == 0:
             file.seek(temp_offset)
-            return str
+            return bstr
 
 
 class PEFile:
+    __slots__ = ('file',
+                 'IMAGE_DOS_HEADER',
+                 'DOS_STUB',
+                 'IMAGE_NT_HEADERS',
+                 'IMAGE_SECTION_HEADER',
+                 'IMAGE_IMPORT_DESCRIPTOR',
+                 'IMAGE_EXPORT_DIRECTORY',
+                 'DOS_FILE',
+                 'PE32PLUS',
+                 'EAT'
+     )
+
     def __init__(self, path):
         self.file = open(path, mode='rb')
         self.IMAGE_DOS_HEADER = OrderedDict({
@@ -199,6 +211,10 @@ class PEFile:
         original_offset = self.file.tell()
         for library in self.IMAGE_IMPORT_DESCRIPTOR:
             int_offset = self.__bytes2raw(library['OriginalFirstThunk'])
+            if int_offset == -1: # upx compress OriginalFirstThunk is 0
+                int_offset = self.__bytes2raw(library['FirstThunk'])
+            if int_offset == -1:
+                return
             self.file.seek(int_offset)
             while True:
                 fun_rav = self.file.read(4)
